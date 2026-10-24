@@ -1,2 +1,102 @@
 \section{Theory} \label{sec:Theory}
 
+
+
+
+\subsection{Moment of Quantization}
+
+There are generaly two ways to quantize a neural network model based on when quantization occurs.
+The simplest way to do quantization is to train the model in full floating point precision and then quantize the weights and activations after training.
+This is called Post Training Quantization (PTQ). This is simple and efficient, but often hurts the models accuracy due to the quantization noise.
+When quantizing model activations using PTQ, this involves a calibrations step where calibration data is sendt through the network to 
+to compute the clipping ranges and the scaling factors for the activation quantizer.
+
+To regain some of the accuracy it is possible to apply quantization during training, also called Quantization Aware Training (QAT).
+This way the network can addapt to the quantization noise during training to find a better solution.
+QAT can be applyed from a checkpoint of a model already trained in full precision (called warmup), or from the first training iteration.
+A few iterations of warmup can sometimes help a model converge to a solution faster druing training.
+
+Quantization Aware Training involves applying fake quantization. This means that the quantized parameters of the model
+are stored in FP32 and all hardware operations are performed in FP32, but before operations in the forward and backward pass rounding and clamping 
+is performed to simulate the effects of quantization. The convertion to fixed point is performed after training like with PTQ.
+
+The drawbacks of QAT is that it requires more computational resources. This is because the fake quantization step adds computation,
+there are more quantization-specific model parameters with associated gradient components that are involved in computations.
+The model often also requires more iterations to converge to a solution, the main reason for this is the Straight Through Estimator.
+
+\subsection{Straight Through Estimator}
+
+During QAT the weights are stored in full precision, and the quantized weights ($\hat{w}$) are calculated during the forward pass and used when deployed.
+The full precision weights ($w$) are often called the shadow weights. 
+Backward computes $\frac{\partial L}{\partial w}$ and the optimizer applies it to the shadow weights; the quantized weights are only ever derived from them. 
+The reason is that a gradient step must be able to move a weight by an arbitrarily small amount, and a quantized weight can only move one level at a time.
+Imagine updating a quantized weigth tensor: a too small step in the direction of a gradient will round back to the origional value, this freezes training.
+Updating on the shadow weights lets us keep the small gradiant steps done in the backward pass, which will eventully push the $\hat{w}$ across a rounding boundary.
+
+The forward pass uses $hat{w}$ which gives the well defined gradiant: $\frac{\partial L}{\partial \hat{w}}$, in the backward pass.
+The shadow weight gradient is given by \eqref{shadow_grad}.
+
+\begin{equation} \label{shadow_grad}
+    \frac{\partial L}{\partial w} = \frac{\partial L}{\partial \hat{w}} \cdot \frac{\partial \hat{w}}{\partial w} 
+\end{equation}
+
+
+The rounding applyed by the quantizer results in $\frac{\partial \hat{w}}{\partial w}$ being zero almost everywhere and undefined at the rounding and clipping thresholds.
+This means that the loss function is piecewise constant with respect to the quantized parameters. This again resulting in a gradient that either halt or explode training of those parameters.
+
+The most common workaround for this problem is using a The Straight Through Estimator (STE). When calculating \eqref{shadow_grad} in the backward pass, 
+STE assumes $\frac{\partial \hat{w}}{\partial w} = 1$ which gives $\frac{\partial L}{\partial w} = \frac{\partial L}{\partial \hat{w}}$ .
+We say that the STE lets the gradiant from the output of the quantizer pass straight through to the input shadow weight during the backward pass.
+This gives us a well defined usefull gradiant, however it does lead to biased parapeter updates and limits how well the model can learn.
+The fewer bits used in quantization, the further appart are the rounding boundaries will be, making training harder.
+
+
+\subsection{Non-uniform Quantization}
+
+Uniform quantization means the quantization levels follow a uniform distribution over the quantization range.
+When this is not the case the quantization is called non uniform.
+
+Non uniform quatnization can reduce the quantization loss if the variables being quantized follow a non-uniform distribution.
+Neural network model weights normally follow a gaussian distribution \cite{}, with higher density of weight values closer to zero.
+This mean that using uniform quantization wasts quantization levels for higher valued weights and has to few to capture the many lower valued weights.
+Using non uniform quantization can improve this and thereby reduce the quantization noise to improve model accuracy.
+
+We can separate between three categories of non-uniform quantization. 
+The simplest one is rule-based, which means the quantization levels are static and descibed by rules.
+The optimization based approach formulates non-uniform quantization as an optimization problem, letting the quantization levels
+be free variables that can be adjusted and optimized.
+They can for example be jointly trained with model parameters.
+
+An example of a rule-based non-uniform quantization is logarithmic quantization. 
+The base 2 logarithmic quantizer rule is given by \eqref{log_quant}. This equation gives a 
+logarithmic distribution of quantization levels.
+
+\begin{eqnarray} \label{log_quant}
+    Q(x) = S \cdot Sign(x) \cdot eqnarrayq \\
+    q = round(log_2|\frac{x}{S}|)
+\end{eqnarray}
+
+Here $S$ is the scale factor used to set the quantization range, like with uniform quantization $S$.
+Note that $S$ does not change the quantization levels, so optimiziong $S$ does not mean optimizing quantization levels.
+$q$ is the exponent which can be stored in lower bit formats. 
+When $q$ is stored in fixed point it is clipped/clamped to the range that is determined by the bit-width $b$, typically $[-2^b - 1, 2^b]$.
+When using fake quantization during QAT fake clipping/clamping must also be done.
+
+
+The origional motivation I argued for non-uniform quantization was that the quantization level distribition can better be matched to 
+the distribution of whatever you are quantizing, so we can gain accuracy.
+However, QAT with non-uniform quantization such as PoT might still hurt training, and reduce the model accuracy.
+The reason : for some levels the difference between shadow weights and quantized weights can become larger (but also some smaller)
+
+\subsection{Power of Two Quantization}
+
+With base 2 muldtiplication becomes shifts...
+
+Why negative exponent instead of normal log with base 2?
+
+Why more knobs - APoT - why is not more bits used (on pr Kx)
+
+Handeling zero.
+
+
+

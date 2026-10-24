@@ -1,44 +1,28 @@
 \section{Introduction}\label{sec:Introduction}
 
-\subsection{Current project plan}
+The goal of this project is to investigate different quantization techniques for compressiong Convolutional Neural Networks (CNNs).
+Specifically CNNs that process hyperspectural data at edge devices are considered. 
 
-I should decide on a model or a type of model to compress for efficient inference on a specific hardware.
-The goal is to save both space, processing time, power ...
+Quantization is an important technique often used when memory or computational resources are limited. 
+For instance, quantization has beeing important in the recents advancements in LLMs, where the limitations in memory and compute has come from the rapid increase in the number of model parameters.
 
-Options for models to compress:
-- 1D-Justo-LiuNet (1D CNN for land-sea-cloud classification onboard hypso 2)
-- any hyperspectral data compression models?
+Quantization often come at the cost of computational accuracy. 
+In general the accuracy loss increases with the quantization noise.
+However when quantizing neural networks the the accuracy loss is not alloways as predicable. Models are often overparametericed which allows them 
+withstand precision loss without lossing as much accuracy.
 
-Options for specific hardware:
-- hypso 2: AMD/Xilinx Zynq-7000 - SoC = dual/quad ARM Cortex-A9 hard processor + programmable logic
-- hypso 3: Xilinx/AMD Zynq UltraScale+ - targeted to use the Kria K26 SoM. Vitis AI DPU support and maybe sub-8-bit options
+This makes model quantization...
+This gives rise to many techniques for model quantization...
+Compressing the model becomes a optimization problem looking for the least overparametericed solution
 
-When benchmarking I will do some testing of inference on gpus and cpus, but I also want to test inference with fpga 
-in the loop. For this i could use Vitis AI for fast deployment on Xilinx devices. Altough Vitis HLS AI or similar i likely to be used
-when hardware acceleration for onboard models is develuped by smallsat. F.ex 1D-Justo-LiuNet is deployed ombord hypso2, but runs on the cpus. 
-Another student projects is to look into using hls for AI acceleration/matrix operations.
+This project focuses on using quantization for compression models that will be deployed on resource constraind edge devices.
+Specificly on models that process hyperspectural data onboard satellites.
+The hypso mission...
+why we want to process onboard.. the downlink bottleneck in remote sensing - hyperspectural data is large and expensive to transmit.
 
-The software pipeline i will be using for model compression is likely: Keras/PyTorch -> ONNX -> Vitis AI DPU -> .xmodel on K26.
 
-I will start by looking into model quantization. 
-Converting down to INT8 activations is a safe start and will save much memory and runtime since
-the fpgas DPU blocks is guaranteed to support it and the biggest speedup comes from using these blocks.
-A possibility is to try INT4 per-channel-scaled weights, but i need to verify DPU support. Mixed precisions
-for different layers might be possible.
-Some differnet ways to quantize accoress the model:
-- per tensor (simpler) vs. a per-channel/per-group (better accuarcy) quantization
-- symmetric (simpler) vs asymmeric (better but less support) quantization
-    - a trick: calibrate asymmetric, fold zero-point to symmetric for the DPU at compile.
+We will specificly investigate mixed precision quantization... Non-uniform quantization using logarithmic quantization with power-of-two (PoT) and addetiv power-of-two (APoT) for model weights...
+and techniques to measure quantization sensitivity of the model to quantization.
 
-Quantization aware training (QAT) is also a technique i can look into.
+This report will compare the performance by accuracy, size and computational efficiency.
 
-Next I will look into Pruning. Unstructured pruning (zeroing individual weights) is simple but not effective on fpga i read.
-Structured pruning is better.
-
-Taking a look at Pruning + quantization interplay is interessting here. 
-Pruning changes distribution. Aggressive pruning can hurt quantization accuracy since sparser/irregular weight ranges are harder to quantize, 
-so these need to be jointly tuned, not independently.
-
-Knowledge Distillation is about using the full model as a teacher to the compressed model (student) 
-to recover some accuracy. It can be applied sequentially during quantization / quantization aware training and pruning.
-Knowledge distillation could be a good way to tune quantization and pruning jointly.
