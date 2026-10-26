@@ -4,16 +4,15 @@ The goal of this project is to investigate different quantization techniques for
 Specifically CNNs that process hyperspectural data at edge devices are considered. 
 
 Quantization is an important technique often used when memory or computational resources are limited. 
-For instance, quantization has beeing important in the recents advancements in LLMs, where the limitations in memory and compute has come from the rapid increase in the number of model parameters.
+For instance, quantization has beeing important in the recents advancements in LLMs, 
+where the limitations in memory and compute has come from the rapidly increasing number of model parameters 
+and the ever increasing demand for fast and reliable ai agents.
 
-Quantization often come at the cost of computational accuracy. 
-In general the accuracy loss increases with the quantization noise.
+Quantization often come at the cost of computational accuracy.
+In general precision increaes linearly with the quantization noise, which increases a models accuracy in a predictible way.
 However when quantizing neural networks the the accuracy loss is not alloways as predicable. Models are often overparametericed which allows them 
-withstand precision loss without lossing as much accuracy.
-
-This makes model quantization...
-This gives rise to many techniques for model quantization...
-Compressing the model becomes a optimization problem looking for the least overparametericed solution
+to withstand precision loss without lossing as much accuracy. In addition to this, techniques can be used to allow a model to adapt to the quantization noise.
+Compressing these models becomes a optimization problem looking for the least overparametericed solution.
 
 This project focuses on using quantization for compression models that will be deployed on resource constraind edge devices.
 Specificly on models that process hyperspectural data onboard satellites.
@@ -22,7 +21,7 @@ why we want to process onboard.. the downlink bottleneck in remote sensing - hyp
 
 
 We will specificly investigate mixed precision quantization... Non-uniform quantization using logarithmic quantization with power-of-two (PoT) and addetiv power-of-two (APoT) for model weights...
-and techniques to measure quantization sensitivity of the model to quantization.
+... techniques to measure quantization sensitivity of the model to quantization such as HAWQ.
 
 This report will compare the performance by accuracy, size and computational efficiency.
 

@@ -1,8 +1,18 @@
 \section{Theory} \label{sec:Theory}
 
+\subsection{Uniform Quantization}
+
+\begin{gather} \label{uniform_quant}
+    q = \operatorname{clip}\!\left(\operatorname{round}\!\left(\tfrac{x}{S}\right) + Z,\; q_{\min},\; q_{\max}\right), \qquad q_{\min}= -2^{b-1},\; q_{\max}=2^{b-1}-1 \\[2pt]
+    x_q = Q(x) = S (q - Z)
+\end{gather}
+
+$Z$: zero point
 
 
+\subsection{Quantization Granularity}
 
+Per tensor quantization vs per channel quantization ...
 \subsection{Moment of Quantization}
 
 There are generaly two ways to quantize a neural network model based on when quantization occurs.
@@ -72,15 +82,16 @@ The base 2 logarithmic quantizer rule is given by \eqref{log_quant}. This equati
 logarithmic distribution of quantization levels.
 
 \begin{eqnarray} \label{log_quant}
-    Q(x) = S \cdot Sign(x) \cdot eqnarrayq \\
-    q = round(log_2|\frac{x}{S}|)
+    Q(x)=\operatorname{sign}(x)\cdot \alpha \cdot 2^{\,q},\qquad
+    q = \operatorname{clip}\!\left(\operatorname{round}\!\big(\log_2\tfrac{|x|}{\alpha}\big),\,n_{\min},\,n_{\max}\right)
 \end{eqnarray}
 
-Here $S$ is the scale factor used to set the quantization range, like with uniform quantization $S$.
-Note that $S$ does not change the quantization levels, so optimiziong $S$ does not mean optimizing quantization levels.
+Here $\alpha$ is the scale factor used to set the quantization range, like with uniform quantization $\alpha$.
+Note that $\alpha$ does not change the quantization levels, so optimiziong $\alpha$ does not mean optimizing quantization levels.
 $q$ is the exponent which can be stored in lower bit formats. 
 When $q$ is stored in fixed point it is clipped/clamped to the range that is determined by the bit-width $b$, typically $[-2^b - 1, 2^b]$.
 When using fake quantization during QAT fake clipping/clamping must also be done.
+Q(0) is undefined (log2(0)), and the formula neither clips nor includes 0 in the codebook.
 
 
 The origional motivation I argued for non-uniform quantization was that the quantization level distribition can better be matched to 
@@ -88,15 +99,38 @@ the distribution of whatever you are quantizing, so we can gain accuracy.
 However, QAT with non-uniform quantization such as PoT might still hurt training, and reduce the model accuracy.
 The reason : for some levels the difference between shadow weights and quantized weights can become larger (but also some smaller)
 
+
 \subsection{Power of Two Quantization}
 
-With base 2 muldtiplication becomes shifts...
+Choosing base 2 logarithmic quantization lets multiplication in the MAC operations in the neural net be replaced by bit shifts.
+If $x$ is an integer then $x \cdot 2^{n} = x << n$.
 
-Why negative exponent instead of normal log with base 2?
+In Power of Two Quantization (PoT) the convention is to factor out from the scale as shown in \eqref{pot_factor}.
+This is the same as normalising weights by the largest representable magnitude $N = 2^{b-1}-1$.
+(Sign-magnitude, b bits: 1 sign bit s, b-1 bits for the magnitude index. One code word is reserved for zero)
 
-Why more knobs - APoT - why is not more bits used (on pr Kx)
+\begin{equation} \label{pot_factor}
+    \alpha\big\{2^{0},2^{1},\dots,2^{N-1}\big\}
+    = \big(\alpha\,2^{N-1}\big)\big\{2^{-(N-1)},\dots,2^{-1},2^{0}\big\}.
+\end{equation}
 
-Handeling zero.
+The result is a quantizer using negative exponents as shown in \eqref{pot_quantizer}.
+Weights without the scale $\alpha$ gets the range $[-1, 1]$,
 
+\begin{gather} \label{pot_quantizer}
+    Q(x) = \alpha\,\operatorname{sign}(x)\,2^{-k}, \qquad Q(0)=0 \\[2pt]
+    k = \operatorname{clip}\!\Big(\operatorname{round}\big(\log_2\tfrac{\alpha}{|x|}\big),\,0,\,2^{b-1}-2\Big) \\[2pt]
+    k \in \{0, 1, \dots, 2^{b-1}-2\} \\[2pt]
+    Q(x) \in \alpha\cdot\{\,0,\ \pm 2^{-(2^{b-1}-2)},\ \dots,\ \pm 2^{-1},\ \pm 1\,\}
+\end{gather}
 
+\subsection(Addetive Power of Two Quantization)
 
+Addetive Power of Two Quantization (APoT) is an extention of PoT, that sums several powers-of-two terms to get a quantized value, 
+$q = \alpha \cdot (2^{-k_1} + 2^{-k_2} + \dots + 2^{-k_n})$.
+This gives a non-uniform, bell-shaped distribution with even finer quantization level spacing near zero. 
+This this matches the typical bell-shaped weight distributions better than pure PoT.
+Similarly to PoT, APoT completely avoids multiplication in the networks MAC operations, 
+but introduces some more computations due to summation of powers-of-two terms in the quantizer.
+
+Primary source: \cite{liAdditivePowersofTwoQuantization2020}.
